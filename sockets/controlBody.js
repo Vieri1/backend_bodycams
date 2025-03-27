@@ -4,25 +4,19 @@ const {
     getControlBodys,
     getControlBody,
     updateControlBody,
-    deleteControlBody,
-    updateControlBodybynombre
+    updateControlBodybynombre,
+    getAllControlBodysGeneral
 } = require('../controllers/controlBodyController');
 const {
     getBodyCamByName
 } = require("../controllers/bodyCamController")
-const {
-    newPersona
-} = require("../controllers/personaController")
+
 const {
     getHorario
-
 } = require("../controllers/horarioController");
 const {
     getJurisdiccion
 } = require("../controllers/jurisdiccionesController")
-const {
-    newfuncion
-} = require("../controllers/funcionController");
 
 const {
     getUnidad
@@ -30,6 +24,24 @@ const {
 const socketHandlerscontrol = (socket, io) => {
 
     console.log("socketHandlers ejecutándose en:", socket.id);
+
+    socket.on("getAllControlBodysGeneral", async () => {
+        try {
+            const response = await getAllControlBodysGeneral();
+            socket.emit("getAllControlBodysGeneralResponse", { 
+                status: 200, 
+                message: "Todos los ControlBodies obtenidos correctamente", 
+                data: response 
+            });
+            
+        } catch (error) {
+            console.error("❌ Error al obtener todos los ControlBodies:", error);
+            socket.emit("getAllControlBodysGeneralResponse", { 
+                status: 500, 
+                message: "Error interno del servidor" 
+            });
+        }
+    });
 
     socket.on("getControlBody", async (data, callback) => {
         const { id } = data;
@@ -50,50 +62,42 @@ const socketHandlerscontrol = (socket, io) => {
         }
     });
     socket.on("ActualizarControlBodys", async (data, callback) => {
-        const { id, fecha_devolucion, hora_devolucion, detalles, status } = data;
-
-        // Validar campos requeridos
+        const { id, fecha_devolucion, hora_devolucion, numero_unidad,detalles, status } = data;
+    console.log("esta es la data",data);
+    
         if (!id) {
-            if (typeof callback === 'function') {
-                callback({ status: 400, message: "El ID del ControlBody es requerido" });
-            }
-            return;
+            return callback?.({ status: 400, message: "El ID del ControlBody es requerido" });
         }
-
+    
         try {
-            // Obtener el registro de control directamente por ID
+            // Verificar si el registro existe
             const controlBodyRecord = await getControlBody(id);
-
             if (!controlBodyRecord) {
-                return callback({ status: 404, message: `Registro de control con ID ${id} no encontrado` });
+                return callback?.({ status: 404, message: `Registro de control con ID ${id} no encontrado` });
             }
-
-            // Actualizar el registro usando directamente el ID del control body
-            const updatedRecord = await updateControlBody(
-                { id: id }, // Usar directamente el ID del control body
-                { fecha_devolucion, hora_devolucion, detalles, status }
-            );
-
+    
+            // Actualizar el registro y obtener el objeto actualizado
+            const updatedRecord = await updateControlBody({ id, fecha_devolucion, numero_unidad,hora_devolucion, detalles, status });
+    
             if (!updatedRecord) {
-                return callback({ status: 500, message: "Error al actualizar el registro" });
+                return callback?.({ status: 500, message: "Error al actualizar el registro" });
             }
-
-            // Obtener el registro actualizado para devolverlo
-            const updatedResponse = await getControlBody(id);
-
-            const responseData = { status: 200, message: "ControlBody actualizado", data: updatedResponse };
-            callback(responseData);
-            io.emit("bodycamActualizada", updatedResponse);
-            io.emit("ActualizarControlBodysResponse", responseData);
+    
+            // Emitir eventos a todos los clientes y al mismo usuario que hizo la actualización
+            io.emit("bodycamActualizada", updatedRecord);
+            socket.emit("ActualizarControlBodysResponse", { status: 200, message: "ControlBody actualizado", data: updatedRecord });
+    
+            // Responder al usuario que hizo la solicitud
+            return callback?.({ status: 200, message: "ControlBody actualizado", data: updatedRecord });
+    
         } catch (error) {
             console.error("Error al actualizar controlBody:", error);
-            const errorResponse = { status: 500, message: "Error en el servidor" };
-            if (typeof callback === 'function') {
-                callback(errorResponse);
-            }
-            socket.emit("ActualizarControlBodysResponse", errorResponse);
+            return callback?.({ status: 500, message: "Error en el servidor" });
         }
     });
+    
+
+
     socket.on("ActualizarControlBodysbynumero", async (data, callback) => {
        
 
@@ -104,8 +108,6 @@ const socketHandlerscontrol = (socket, io) => {
         try {
             const body=await getBodyCamByName(numero);
            
-            
-            
             if(!body){
                 return callback({ status: 404, message: "La bodycam no está registrada en la db"})
             }
@@ -130,40 +132,41 @@ const socketHandlerscontrol = (socket, io) => {
     });
 
     socket.on("getAllControlBodys", async (data) => {
-        const {
-            page = 1,
-            limit = 20,
-            search = '',
-            ordenarPor = 'createdAt', // Cambiar el valor predeterminado a createdAt
-            orden = 'DESC'
-        } = data;
-
+        const { page, limit, search, ordenarPor = 'createdAt', orden = 'DESC' } = data;
+    
+        // Validaciones dentro del socket
         if (isNaN(page) || page <= 0 || isNaN(limit) || limit <= 0) {
             socket.emit("getAllControlBodysResponse", { status: 400, message: "Page y limit deben ser números válidos" });
             return;
         }
+    
+        const camposValidos = ['id', 'fecha_entrega', 'hora_entrega', 'createdAt', 'updatedAt', 'status'];
 
+        const ordenarPorValido = camposValidos.includes(ordenarPor) ? ordenarPor : 'createdAt';
+
+        const ordenValido = ['ASC', 'DESC'].includes(orden.toUpperCase()) ? orden.toUpperCase() : 'DESC';
+    
         try {
-            // Pasar el ordenamiento a la función getControlBodys
-            const response = await getControlBodys(Number(page), Number(limit), search, ordenarPor, orden);
+            // Llamamos al controlador con los valores ya validados
+            const response = await getControlBodys(Number(page), Number(limit), search, ordenarPorValido, ordenValido);
+    
             socket.emit("getAllControlBodysResponse", { status: 200, message: "ControlBodies obtenidos correctamente", data: response });
-            console.log("esta es mi respuesta", response);
+    
+         
 
         } catch (error) {
             console.error("❌ Error al obtener ControlBodies:", error);
+    
             socket.emit("getAllControlBodysResponse", { status: 500, message: "Error interno del servidor" });
         }
     });
-
-    //CREA
-
+   
     socket.on('createControlBody', async (data) => {
-        console.log("Esta es la data:", data);
 
         try {
             const errores = [];
             const regex = /^[a-zA-Z0-9ñÑáéíóúÁÉÍÓÚ\s]+$/;
-            const { numeros, nombres, apellidos, dni, turno, jurisdiccion, fecha_entrega, funcion, unidad, hora_entrega } = data;
+            const { numeros, nombres, apellidos,funcion, turno, jurisdiccion, fecha_entrega,  unidad, hora_entrega } = data;
 
             if (!Array.isArray(numeros) || numeros.length === 0) {
                 socket.emit("ControlBodys", { status: 400, message: "Debe proporcionar un arreglo de números de BodyCam." });
@@ -183,13 +186,6 @@ const socketHandlerscontrol = (socket, io) => {
             }
 
             // Obtener IDs comunes
-            const get_id_dni = await newPersona({ dni, nombres, apellidos });
-            if (!get_id_dni) {
-                socket.emit("ControlBodys", { status: 404, message: "La persona con el DNI proporcionado no existe." });
-                return;
-            }
-            const id_dni = get_id_dni.id;
-
             const get_id_turno = await getHorario(turno);
             if (!get_id_turno) {
                 socket.emit("ControlBodys", { status: 404, message: "El turno especificado no existe." });
@@ -204,12 +200,7 @@ const socketHandlerscontrol = (socket, io) => {
             }
             const id_jurisdiccion = get_id_jurisdiccion.id;
 
-            const get_id_funcion = await newfuncion({ funcion });
-            if (!get_id_funcion) {
-                socket.emit("ControlBodys", { status: 404, message: "La función especificada no existe." });
-                return;
-            }
-            const id_funcion = get_id_funcion.id;
+
 
             const get_id_unidad = await getUnidad(unidad);
             if (!get_id_unidad) {
@@ -217,9 +208,6 @@ const socketHandlerscontrol = (socket, io) => {
                 return;
             }
             const id_unidad = get_id_unidad.id;
-
-            console.log("IDs obtenidos:", { id_dni, id_turno, id_jurisdiccion, id_funcion, id_unidad });
-
             // Crear múltiples registros en una sola consulta con bulkCreate
             const controlBodies = [];
 
@@ -232,7 +220,7 @@ const socketHandlerscontrol = (socket, io) => {
                 const id_Body = get_id.id;
 
                 controlBodies.push({
-                    id_Body, id_dni, id_turno, id_jurisdiccion, id_unidad, id_funcion, fecha_entrega, hora_entrega, status: "EN CAMPO"
+                    id_Body,nombres,apellidos,funcion, id_turno, id_jurisdiccion, id_unidad, fecha_entrega, hora_entrega, status: "EN CAMPO"
                 });
             }
 

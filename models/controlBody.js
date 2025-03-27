@@ -14,14 +14,17 @@ module.exports = (sequelize) => {
             },
             allowNull: false
         },
-        id_dni: {
-            type: DataTypes.UUID,
-            references: {
-                model: 'Personas',
-                key: 'id',
-            },
-            
+        nombres: {
+            type: DataTypes.STRING,       
             allowNull: false
+        },
+        apellidos:{
+            type: DataTypes.STRING,       
+            allowNull: false
+        },
+        funcion:{
+            type:DataTypes.STRING,
+            allowNull:false
         },
         id_turno: {
             type: DataTypes.UUID,
@@ -47,14 +50,7 @@ module.exports = (sequelize) => {
             },         
             allowNull: false
         },
-        id_funcion:{
-            type: DataTypes.UUID,
-            references: {
-                model: 'Funcions',
-                key: 'id',
-            },         
-            allowNull: false
-        },
+       
         fecha_entrega:{
             type: DataTypes.DATEONLY,
             allowNull: true,
@@ -75,11 +71,8 @@ module.exports = (sequelize) => {
         
         status:{
             type: DataTypes.ENUM('EN CAMPO','EN CECOM'),
-            // references: {
-            //     model: 'Usuarios',
-            //     key: 'id',
-            // },
-            allowNull: true
+            allowNull: false,
+            defaultValue: 'EN CECOM'
         },
         detalles:{
             type:DataTypes.TEXT,
@@ -90,11 +83,9 @@ module.exports = (sequelize) => {
         timestamps: true
     });
      controlBody.associate = (db) => {  
-        controlBody.belongsTo(db.bodyCam, { foreignKey: 'id_Body', as: 'bodyCams' });
-        controlBody.belongsTo(db.Persona, { foreignKey: 'id_dni', as: 'Personas' });
+        controlBody.belongsTo(db.bodyCam, { foreignKey: 'id_Body', as: 'bodyCams' });  
         controlBody.belongsTo(db.Unidad, { foreignKey: 'id_unidad', as: 'Unidads' });
         controlBody.belongsTo(db.horario, { foreignKey: 'id_turno', as: 'horarios' });
-        controlBody.belongsTo(db.Funcion, { foreignKey: 'id_funcion', as: 'funcions' });
         controlBody.belongsTo(db.Jurisdiccion,{foreignKey:'id_jurisdiccion',as:'Jurisdiccions'});
     };
 

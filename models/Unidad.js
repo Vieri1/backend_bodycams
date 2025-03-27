@@ -11,7 +11,7 @@ module.exports=(sequelize)=>{
             allowNull:true
         },
         numero:{
-            type: DataTypes.INTEGER,
+            type: DataTypes.STRING,
             allowNull: true
         },
         placa:{
