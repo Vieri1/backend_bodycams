@@ -5,7 +5,7 @@ const { horario } = require('../db_connection');
 const { Jurisdiccion } = require('../db_connection');
 const { Unidad } = require('../db_connection');
 
-const newControlBody = async (controlBodies) => { 
+const newControlBody = async (controlBodies) => {
     try {
         const response = await controlBody.bulkCreate(controlBodies);
         return response || null;
@@ -16,11 +16,11 @@ const newControlBody = async (controlBodies) => {
 };
 //aca comenzo todooooooo y desde aqui lo arreglo 
 
-const getControlBodys = async (page = 1, limit = 20, searchTerm = null, ordenarPor = 'createdAt', orden = 'DESC') => {
+const getControlBodys = async (page = 1, limit = 20, searchTerm = null) => {
     const offset = (page - 1) * limit;
-    
+
     try {
-        let whereCondition = {}; // Para filtrar en controlBody
+        let whereCondition = {}; // Condición base para controlBody
         let includeOptions = [
             { model: horario, as: 'horarios', attributes: ['turno'] },
             { model: Jurisdiccion, as: 'Jurisdiccions', attributes: ['jurisdiccion'] },
@@ -28,26 +28,71 @@ const getControlBodys = async (page = 1, limit = 20, searchTerm = null, ordenarP
             { model: bodyCam, as: 'bodyCams', attributes: ['numero'] }
         ];
 
-        // 🔹 Si hay un término de búsqueda, filtramos en controlBody en lugar de solo en bodyCam
         if (searchTerm) {
             whereCondition = {
-                [Op.or]: [
-                    { status: { [Op.like]: `%${searchTerm}%` } }, // Busca en controlBody.status
-                    { fecha_entrega: { [Op.like]: `%${searchTerm}%` } }, // Busca en controlBody.fecha_entrega
-                    { '$bodyCams.numero$': { [Op.like]: `%${searchTerm}%` } } // También busca en bodyCams.numero
-                ]
+                '$bodyCams.numero$': { [Op.like]: `%${searchTerm}%` }
             };
         }
 
         const response = await controlBody.findAndCountAll({
             limit,
             offset,
-            where: whereCondition, // 🔥 Ahora se filtra en controlBody
+            where: whereCondition, 
             attributes: {
-                exclude: ['updatedAt', 'id_Body', 'id_dni', 'id_turno', 'id_jurisdiccion', 'id_unidad', 'id_funcion']
+                exclude: ['updatedAt', 'id_Body', 'id_turno', 'id_jurisdiccion', 'id_unidad']
             },
             include: includeOptions,
-            order: [[ordenarPor, orden]]
+            order: [["createdAt", "DESC"]]
+        });
+
+        return {
+            totalCount: response.count,
+            data: response.rows,
+            currentPage: page
+        };
+    } catch (error) {
+        console.error("❌ Error al obtener controlBodys:", error);
+        return false;
+    }
+};
+
+const getControlBodysfilter = async (page = 1, limit = 20, filtros = {}) => {
+    const offset = (page - 1) * limit;
+
+    try {
+        let whereCondition = {}; // Se construye dinámicamente
+        
+        // 🔹 Solo se agregan los filtros que existen
+        if (filtros.jurisdiccion) {
+            whereCondition['$Jurisdiccions.jurisdiccion$'] = { [Op.like]: `%${filtros.jurisdiccion}%` };
+        }
+        if (filtros.funcion) {
+            whereCondition['funcion'] = { [Op.like]: `%${filtros.funcion}%` };
+        }
+        if (filtros.turno) {
+            whereCondition['$horarios.turno$'] =  { [Op.like]: `%${filtros.turno}%` };
+        }
+        if (filtros.status) {
+            whereCondition['status'] =  { [Op.eq]: filtros.status } ;
+        }
+        if (filtros.detalles) {
+            whereCondition['detalles'] = { [Op.like]: `%${filtros.detalles}%` };
+        }
+
+        const response = await controlBody.findAndCountAll({
+            limit,
+            offset,
+            where: whereCondition,
+            attributes: {
+                exclude: ['updatedAt', 'id_Body', 'id_turno', 'id_jurisdiccion', 'id_unidad']
+            },
+            include: [
+                { model: horario, as: 'horarios', attributes: ['turno'] },
+                { model: Jurisdiccion, as: 'Jurisdiccions', attributes: ['jurisdiccion'] },
+                { model: Unidad, as: 'Unidads', attributes: ['numero'] },
+                { model: bodyCam, as: 'bodyCams', attributes: ['numero'] }
+            ],
+            order: [["createdAt", "DESC"]]
         });
 
         return { totalCount: response.count, data: response.rows, currentPage: page } || null;
@@ -74,17 +119,17 @@ const getControlBody = async (id) => {
         return false;
     }
 };
-const updateControlBody = async ({id, fecha_devolucion,numero_unidad, hora_devolucion, detalles, status }) => {
+const updateControlBody = async ({ id, fecha_devolucion, numero_unidad, hora_devolucion, detalles, status }) => {
 
-    console.log("mmgvo",id, fecha_devolucion,numero_unidad, hora_devolucion, detalles, status);
-    
+    console.log("mmgvo", id, fecha_devolucion, numero_unidad, hora_devolucion, detalles, status);
+
     try {
         // Usar el ID del control body real en lugar de id_Body
         const response = await controlBody.findOne({ where: { id } });
 
-        const responseunidad= await Unidad.findOne({ where:{ numero:numero_unidad} });
-         
-        const id_unidad=responseunidad.id
+        const responseunidad = await Unidad.findOne({ where: { numero: numero_unidad } });
+
+        const id_unidad = responseunidad.id
 
         if (response) {
             await response.update({
@@ -94,7 +139,7 @@ const updateControlBody = async ({id, fecha_devolucion,numero_unidad, hora_devol
                 detalles,
                 status
             });
-            
+
         }
 
         return response || null;
@@ -103,13 +148,13 @@ const updateControlBody = async ({id, fecha_devolucion,numero_unidad, hora_devol
         return false;
     }
 };
-const updateControlBodybynombre = async (body, {fecha_devolucion,hora_devolucion,detalles}) => {
- 
+const updateControlBodybynombre = async (body, { fecha_devolucion, hora_devolucion, detalles }) => {
+
     try {
-        const response = await controlBody.findOne({ where: { id_Body: body.id } });    
-        if (response) await response.update({fecha_devolucion,hora_devolucion,detalles});
+        const response = await controlBody.findOne({ where: { id_Body: body.id } });
+        if (response) await response.update({ fecha_devolucion, hora_devolucion, detalles });
         return response || null;
-        
+
     } catch (error) {
         console.error("Error al actualizar controlBody:", error);
         return false;
@@ -135,17 +180,17 @@ const deleteControlBody = async (id) => {
 const getAllControlBodysGeneral = async () => {
     try {
         const includeOptions = [
-          
+
             { model: horario, as: 'horarios', attributes: ['turno'] },
             { model: Jurisdiccion, as: 'Jurisdiccions', attributes: ['jurisdiccion'] },
             { model: Unidad, as: 'Unidads', attributes: ['numero'] },
-           
+
             { model: bodyCam, as: 'bodyCams', attributes: ['numero'] }
         ];
 
         const response = await controlBody.findAll({
             attributes: {
-                exclude: ['updatedAt', 'id_Body',  'id_turno', 'id_jurisdiccion', 'id_unidad']
+                exclude: ['updatedAt', 'id_Body', 'id_turno', 'id_jurisdiccion', 'id_unidad']
             },
             include: includeOptions,
             order: [['createdAt', 'DESC']]
@@ -166,5 +211,6 @@ module.exports = {
     updateControlBody,
     deleteControlBody,
     updateControlBodybynombre,
-    getAllControlBodysGeneral
+    getAllControlBodysGeneral,
+    getControlBodysfilter
 };

@@ -104,7 +104,7 @@ const socketHandlers = (socket, io) => {
         const { numero, serie, nro_bateria, id_proveedor, currentPage } = data;
 
         const errores = [];
-        const regexNumeros = /^[0-9]+$/;
+   
         const regexLetrasNumeros = /^[a-zA-Z0-9]+$/;
 
         if (!numero) errores.push("El campo numero es requerido");
