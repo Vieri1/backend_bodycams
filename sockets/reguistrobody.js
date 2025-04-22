@@ -1,4 +1,11 @@
-const { newbody, updatebodyCam, getAllbodycams, deletebodyCam, getbodycam, getAllProveedores, getProveedor, getBodcyCamCount } = require("../controllers/bodyCamController");
+const { newbody,
+    updatebodyCam,
+     getAllbodycams,
+      deletebodyCam, 
+      getbodycam,
+       getAllProveedores, 
+       getProveedor, 
+       getReguistroBodysfilter } = require("../controllers/bodyCamController");
 
 const socketHandlers = (socket, io) => {
     socket.on("getBody", async (data, callback) => {
@@ -23,6 +30,32 @@ const socketHandlers = (socket, io) => {
             callback({ status: 500, message: "Error al eliminar la body" })
         }
     })
+    socket.on("getAllbodyfilter", async (filtro) => {
+        console.log(filtro);
+        
+        try {
+            if (!filtro || typeof filtro !== 'object') {
+
+                return socket.emit("getAllRegistrofilterResponse", { status: 400, message: "Filtros inválidos" });
+            }
+            let { page, limit, numero, serie, nro_bateria } = filtro;
+
+            if (isNaN(page) || page <= 0 || isNaN(limit) || limit <= 0) {
+                socket.emit("getAllRegistrofilterResponse", { status: 400, message: "Page y limit deben ser números válidos" });
+                return;
+            }
+            const filtros = { numero, serie, nro_bateria };
+
+            const response = await getReguistroBodysfilter(Number(page), Number(limit), filtros);
+
+            socket.emit("getAllRegistrofilterResponse", { status: 200, message: "ControlBodies obtenidos correctamente", data: response });
+
+        } catch (error) {
+            console.error("❌ Error al obtener ControlBodies:", error);
+
+            socket.emit("getAllRegistrofilterResponse", { status: 500, message: "Error interno del servidor" });
+        }
+    });
     socket.on("deleteBody", async (data, callback) => {
         const { id } = data;
         try {

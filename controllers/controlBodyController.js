@@ -148,11 +148,11 @@ const updateControlBody = async ({ id, fecha_devolucion, numero_unidad, hora_dev
         return false;
     }
 };
-const updateControlBodybynombre = async (body, { fecha_devolucion, hora_devolucion, detalles }) => {
+const updateControlBodybynombre = async (body, { nombres, apellidos,funcion,fecha_entrega, hora_entrega }) => {
 
     try {
         const response = await controlBody.findOne({ where: { id_Body: body.id } });
-        if (response) await response.update({ fecha_devolucion, hora_devolucion, detalles });
+        if (response) await response.update({ nombres, apellidos,funcion,fecha_entrega, hora_entrega });
         return response || null;
 
     } catch (error) {
@@ -184,13 +184,33 @@ const getAllControlBodysGeneral = async () => {
             { model: horario, as: 'horarios', attributes: ['turno'] },
             { model: Jurisdiccion, as: 'Jurisdiccions', attributes: ['jurisdiccion'] },
             { model: Unidad, as: 'Unidads', attributes: ['numero'] },
-
             { model: bodyCam, as: 'bodyCams', attributes: ['numero'] }
         ];
 
         const response = await controlBody.findAll({
             attributes: {
                 exclude: ['updatedAt', 'id_Body', 'id_turno', 'id_jurisdiccion', 'id_unidad']
+            },
+            include: includeOptions,
+            order: [['createdAt', 'DESC']]
+        });
+
+        return response || [];
+    } catch (error) {
+        console.error("Error al obtener todos los controlBodys:", error);
+        return [];
+    }
+};
+const getAllControlBodysGenerales = async () => {
+    try {
+        const includeOptions = [
+
+            { model: Unidad, as: 'Unidads', attributes: ['numero','transporte'] },
+        ];
+
+        const response = await controlBody.findAll({
+            attributes: {
+                exclude: ['updatedAt','nombres','apellidos','funcion', 'id_Body', 'id_turno', 'id_jurisdiccion', 'id_unidad','fecha_entrega','hora_entrega','fecha_devolucion','hora_devolucion','status','detalles']
             },
             include: includeOptions,
             order: [['createdAt', 'DESC']]
@@ -212,5 +232,6 @@ module.exports = {
     deleteControlBody,
     updateControlBodybynombre,
     getAllControlBodysGeneral,
-    getControlBodysfilter
+    getControlBodysfilter,
+    getAllControlBodysGenerales
 };

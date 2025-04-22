@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const { bodyCam } = require('../db_connection')
 const { proveedor } = require('../db_connection')
 
@@ -64,6 +65,43 @@ const getBodyCamByName = async (numero) => {
         return false;
     }
 };
+const getReguistroBodysfilter = async (page = 1, limit = 20, filtros = {}) => {
+    const offset = (page - 1) * limit;
+
+    try {
+        let whereCondition = {}; // Se construye dinámicamente     
+        // 🔹 Solo se agregan los filtros que existen
+        if (filtros.numero) {
+            whereCondition['numero'] = { [Op.like]: `%${filtros.numero}%` };
+        }
+        if (filtros.serie) {
+            whereCondition['serie'] = { [Op.like]: `%${filtros.serie}%` };
+        }
+        if (filtros.nro_bateria) {
+            whereCondition['nro_bateria'] = { [Op.like]: `%${filtros.nro_bateria}%` };
+        }
+        
+
+        const response = await bodyCam.findAndCountAll({
+            limit,
+            offset,
+            where: whereCondition,
+            attributes: {
+                exclude: ['updatedAt', 'id_Body', 'state']
+            },
+            include: [
+                { model: proveedor, as: 'proveedors', attributes: ['marca','modelo'] } 
+            ],
+            order: [["createdAt", "DESC"]]
+        });
+
+        return { totalCount: response.count, data: response.rows, currentPage: page } || null;
+    } catch (error) {
+        console.error("❌ Error al obtener controlBodys:", error);
+        return false;
+    }
+};
+
 const updatebodyCam = async (id, { numero, serie, nro_bateria, id_proveedor }) => {
     try {
         const response = await getbodycam(id);
@@ -129,5 +167,6 @@ module.exports = {
     getBodyCamByName,
     getProveedor,
     getAllProveedores,
-    getBodcyCamCount
+    getBodcyCamCount,
+    getReguistroBodysfilter
 }

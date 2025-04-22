@@ -6,7 +6,8 @@ const {
     updateControlBody,
     updateControlBodybynombre,
     getAllControlBodysGeneral,
-    getControlBodysfilter
+    getControlBodysfilter,
+    getAllControlBodysGenerales
 } = require('../controllers/controlBodyController');
 const {
     getBodyCamByName
@@ -38,6 +39,23 @@ const socketHandlerscontrol = (socket, io) => {
         } catch (error) {
             console.error("❌ Error al obtener todos los ControlBodies:", error);
             socket.emit("getAllControlBodysGeneralResponse", {
+                status: 500,
+                message: "Error interno del servidor"
+            });
+        }
+    });
+    socket.on("getAllControlBodysGenerales", async () => {
+        try {
+            const response = await getAllControlBodysGenerales();
+            socket.emit("getAllControlBodysGeneralesResponse", {
+                status: 200,
+                message: "Todos los ControlBodies obtenidos correctamente",
+                data: response
+            });
+
+        } catch (error) {
+            console.error("❌ Error al obtener todos los ControlBodies:", error);
+            socket.emit("getAllControlBodysGeneralesResponse", {
                 status: 500,
                 message: "Error interno del servidor"
             });
@@ -100,11 +118,7 @@ const socketHandlerscontrol = (socket, io) => {
 
 
     socket.on("ActualizarControlBodysbynumero", async (data, callback) => {
-
-
         const { numero, fecha_devolucion, hora_devolucion, detalles } = data; // Extraer `id`
-
-
 
         try {
             const body = await getBodyCamByName(numero);
@@ -113,6 +127,37 @@ const socketHandlerscontrol = (socket, io) => {
                 return callback({ status: 404, message: "La bodycam no está registrada en la db" })
             }
             const response = await updateControlBodybynombre(body, { fecha_devolucion, hora_devolucion, detalles });
+
+
+            if (!response) {
+                return callback({ status: 404, message: "No se encontró la Bodycam" });
+            }
+            if (response) {
+
+
+                callback({ status: 200, message: "Bodycam actualizada", data: response });
+                io.emit("bodycamActualizada", response); // Notificar a todos los clientes
+            } else {
+                callback({ status: 404, message: "No se encontró la Bodycam" });
+            }
+        } catch (error) {
+            console.error("Error al actualizar controlBody:", error);
+            callback({ status: 500, message: "Error en el servidor" });
+        }
+    });
+    socket.on("Actualizarbynumero", async (data, callback) => {
+        
+        const { numero,nombres, apellidos,funcion,fecha_entrega, hora_entrega } = data; // Extraer `id`
+
+        console.log(numero,nombres, apellidos,funcion,fecha_entrega, hora_entrega);
+
+        try {
+            const body = await getBodyCamByName(numero);
+
+            if (!body) {
+                return callback({ status: 404, message: "La bodycam no está registrada en la db" })
+            }
+            const response = await updateControlBodybynombre(body, { nombres, apellidos,funcion,fecha_entrega, hora_entrega });
 
 
             if (!response) {
@@ -153,6 +198,8 @@ const socketHandlerscontrol = (socket, io) => {
         }
     });
     socket.on("getAllbodycamsfilter", async (filtro) => {
+        console.log(filtro);
+        
         try {
             if (!filtro || typeof filtro !== 'object') {
 
